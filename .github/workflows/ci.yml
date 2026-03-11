@@ -1,0 +1,75 @@
+name: CI/CD Pipeline - Appointment Scheduler
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Cache NuGet Packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore Dependencies
+        run: dotnet restore
+
+      - name: Build Project
+        run: dotnet build --no-restore --configuration Release
+
+      # Тести (Testcontainers PostgreSQL підніметься автоматично)
+      - name: Run Unit & Integration Tests with Coverage
+        run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage" --results-directory:"./coverage"
+
+      # Quality Gate: Аналіз покриття (впаде, якщо менше 80%)
+      - name: Check Code Coverage Quality Gate
+        uses: danielpalme/ReportGenerator-GitHub-Action@v5
+        with:
+          reports: 'coverage/**/*.xml'
+          targetdir: 'coveragereport'
+          reporttypes: 'Html;Badges'
+          # Жорсткий ліміт для бізнес-логіки
+          minimumLineCoverage: '80'
+
+      - name: Upload Coverage Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CodeCoverageReport
+          path: coveragereport/
+
+  performance-check:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      # Тут у реальному житті ми б піднімали API через docker-compose
+      - name: Run API in background
+        run: dotnet run --project Api/Api.csproj &
+        env:
+          ASPNETCORE_ENVIRONMENT: Testing
+
+      - name: Wait for API to be ready
+        run: sleep 10
+
+      - name: Run k6 Load & Stress Tests
+        run: k6 run PerformanceTests/test-booking.js

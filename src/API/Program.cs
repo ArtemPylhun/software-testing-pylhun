@@ -14,6 +14,18 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.Use(async (context, next) =>
+{
+    try { await next(); }
+    catch (Exception ex) 
+    {
+        // Виведе помилку прямо в консоль, де біжать тести
+        Console.WriteLine($"!!! CAUGHT EXCEPTION: {ex.GetType().Name} - {ex.Message}");
+        Console.WriteLine(ex.StackTrace);
+        throw; // Продовжуємо викидати, щоб не маскувати проблему
+    }
+});
+
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
@@ -21,3 +33,5 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+public partial class Program{}

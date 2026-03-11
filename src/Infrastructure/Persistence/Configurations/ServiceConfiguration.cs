@@ -19,5 +19,9 @@ public class ServiceConfiguration : IEntityTypeConfiguration<Service>
         builder.Property(s => s.DurationMinutes).IsRequired();
         builder.Property(s => s.Price).HasPrecision(18, 2);
         builder.Property(s => s.Description).HasColumnType("text");
+        
+        builder.HasMany(s => s.Providers)
+            .WithMany(p => p.Services) // якщо в Provider є List<Service>
+            .UsingEntity(j => j.ToTable("provider_services"));
     }
 }

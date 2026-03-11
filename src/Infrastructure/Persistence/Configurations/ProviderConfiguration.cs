@@ -25,7 +25,9 @@ public class ProviderConfiguration : IEntityTypeConfiguration<Provider>
         builder.Property(p => p.StartWorkingHours).IsRequired();
         builder.Property(p => p.EndWorkingHours).IsRequired();
 
-        builder.Metadata.FindNavigation(nameof(Provider.Appointments))!
-            .SetPropertyAccessMode(PropertyAccessMode.Field);
-    }
+        builder.Navigation(p => p.Services)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.Navigation(p => p.Appointments)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);    }
 }
