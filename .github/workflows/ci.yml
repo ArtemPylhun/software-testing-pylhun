@@ -76,7 +76,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -86,18 +86,23 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Restore Dependencies
+        run: dotnet restore
+
+      - name: Build Project
+        run: dotnet build --configuration Release
+
       - name: Setup k6
         uses: grafana/setup-k6-action@v1
-      
-      # Накочуємо міграції. Перебиваємо Connection String через ENV змінну!
+
       - name: Install EF Core CLI and Apply Migrations
         run: |
           dotnet tool install --global dotnet-ef
+          # Важливо: використовуй повний шлях до проектів, або спочатку перейди в корінь
           dotnet ef database update --project Infrastructure/Infrastructure.csproj --startup-project Api/Api.csproj
         env:
           ASPNETCORE_ENVIRONMENT: Testing
           ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=appointments_db;Username=postgres;Password=${{ secrets.DB_PASSWORD }};Maximum Pool Size=200;"
-      
       # Запускаємо API з тим самим захищеним рядком підключення
       - name: Run API in background
         run: dotnet run --project Api/Api.csproj &
