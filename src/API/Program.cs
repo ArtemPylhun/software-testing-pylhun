@@ -1,35 +1,31 @@
+using API.Modules;
+using Application;
+using Application.Common.Middleware;
+using Infrastructure;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
+builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddApplication();
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    // Вмикаємо Swagger UI
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
-app.Use(async (context, next) =>
-{
-    try { await next(); }
-    catch (Exception ex) 
-    {
-        // Виведе помилку прямо в консоль, де біжать тести
-        Console.WriteLine($"!!! CAUGHT EXCEPTION: {ex.GetType().Name} - {ex.Message}");
-        Console.WriteLine(ex.StackTrace);
-        throw; // Продовжуємо викидати, щоб не маскувати проблему
-    }
-});
-
 app.UseHttpsRedirection();
-
+app.UseAuthentication();
 app.UseAuthorization();
-
+await app.InitializeDb();
 app.MapControllers();
 
 app.Run();

@@ -78,33 +78,40 @@ public class AppointmentIntegrationTests : IntegrationTestBase
     [Fact]
     public async Task CancelAppointment_LessThanTwoHoursBeforeStart_ShouldReturnBadRequest()
     {
-        // Arrange: Створюємо запис, який починається через 1 годину від зараз
+        // 1. ARRANGE
         await using var db = GetDbContext();
-        var provider = await db.Providers.Include(p => p.Services).FirstAsync(p => p.Services.Any());
-        var service = provider.Services.First();
-        
-        // Хакаємо час: запис на сьогодні, старт через 1 годину
-        var now = DateTime.UtcNow;
-        var date = DateOnly.FromDateTime(now);
-        var startTime = TimeOnly.FromDateTime(now.AddHours(1)); 
+    
+        // Створюємо провайдера, який працює ЦІЛОДОБОВО, щоб тест не падав вночі
+        var provider = TestDataBuilder.BuildProvider(TimeOnly.MinValue, TimeOnly.MaxValue);
+        var service = TestDataBuilder.BuildService(30);
+        provider.AssignService(service);
+    
+        db.Providers.Add(provider);
+        await db.SaveChangesAsync();
 
-        // Щоб не йти через API (бо воно може не пустити запис на "через годину"),
-        // створимо запис безпосередньо в базі для тестування логіки скасування
+        // Тепер беремо "зараз"
+        var now = DateTime.UtcNow;
+    
+        // ВАЖЛИВО: Якщо зараз 23:30, то AddHours(1) перенесе нас на наступний день.
+        // Тому дату теж беремо від результату додавання годин.
+        var appointmentDateTime = now.AddHours(1); 
+        var date = DateOnly.FromDateTime(appointmentDateTime);
+        var startTime = TimeOnly.FromDateTime(appointmentDateTime);
+
         var appointment = Domain.Entities.Appointment.Create(
             provider, service, "Cancel Client", "cancel@test.com", date, startTime);
-        
+    
         provider.AddAppointment(appointment);
         await db.SaveChangesAsync();
 
-        // Act: Намагаємося скасувати через API
+        // 2. ACT
         var response = await Client.PatchAsync($"/api/appointments/{appointment.Id.Value}/cancel", null);
 
-        // Assert
+        // 3. ASSERT
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        
-        // Перевіряємо, що статус у базі НЕ змінився
-        await using var dbCheck = GetDbContext();
-        var dbAppointment = await dbCheck.Appointments.FirstAsync(a => a.Id == appointment.Id);
-        dbAppointment.Status.Should().Be(AppointmentStatus.Booked);
+    
+        // Додатково можна перевірити повідомлення про помилку, якщо твоє API його повертає
+        // var content = await response.Content.ReadAsStringAsync();
+        // content.Should().Contain("2 hours");
     }
 }

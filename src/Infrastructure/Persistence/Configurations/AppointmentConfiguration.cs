@@ -14,6 +14,10 @@ public class AppointmentConfiguration : IEntityTypeConfiguration<Appointment>
         builder.Property(a => a.Id)
             .HasConversion(id => id.Value, value => new AppointmentId(value));
         
+        builder.HasIndex(a => new { a.ProviderId, a.Date, a.StartTime })
+            .IsUnique()
+            .HasFilter("status != 'Canceled'");
+        
         builder.HasIndex(a => new { a.ProviderId, a.Date, a.Status });
         builder.HasIndex(a => a.Status);
 

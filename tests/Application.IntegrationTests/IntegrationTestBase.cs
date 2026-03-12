@@ -22,15 +22,14 @@ public abstract class IntegrationTestBase : IClassFixture<CustomWebApplicationFa
 
     public async Task InitializeAsync()
     {
-        // 1. Створюємо з'єднання для Respawn
+        // 1. Відкриваємо з'єднання
         _connection = new NpgsqlConnection(Factory.ConnectionString);
         await _connection.OpenAsync();
 
-        // 2. Ініціалізуємо Respawn
+        // 2. Створюємо Respawner ПІСЛЯ того, як Factory відпрацював MigrateAsync()
         _respawner = await Respawner.CreateAsync(_connection, new RespawnerOptions
         {
             DbAdapter = DbAdapter.Postgres,
-            // Важливо: ми НЕ чіпаємо провайдерів та послуги, скидаємо тільки записи
             TablesToIgnore = new Table[] { "providers", "services", "provider_services" }
         });
     }
@@ -40,7 +39,11 @@ public abstract class IntegrationTestBase : IClassFixture<CustomWebApplicationFa
         var scope = Factory.Services.CreateScope();
         return scope.ServiceProvider.GetRequiredService<AppDbContext>();
     }
-
+    
+    protected async Task ResetDatabaseAsync()
+    {
+        await _respawner.ResetAsync(_connection);
+    }
     public async Task DisposeAsync()
     {
         // 3. Скидаємо базу після кожного тесту

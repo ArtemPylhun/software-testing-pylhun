@@ -7,23 +7,26 @@ public static class TestDataBuilder
 {
     private static readonly Faker _faker = new("uk");
 
-    public static Provider BuildProvider(string? name = null, string? email = null)
+    public static Provider BuildProvider(
+        TimeOnly start, 
+        TimeOnly end, 
+        string specialization = "General")
     {
         return Provider.Create(
-            name ?? _faker.Name.FullName(),
-            _faker.Lorem.Word(),
-            email ?? _faker.Internet.Email(),
-            new TimeOnly(8, 0),
-            new TimeOnly(18, 0)
+            _faker.Name.FullName(),
+            specialization,
+            _faker.Internet.Email(),
+            start,
+            end
         );
     }
 
-    public static Service BuildService(string? name = null, int? duration = null)
+    public static Service BuildService(int durationMinutes, decimal price = 500m)
     {
         return Service.Create(
-            name ?? _faker.Commerce.ProductName(),
-            duration ?? _faker.Random.Int(30, 60),
-            _faker.Random.Decimal(100, 1000),
+            _faker.Commerce.ProductName(),
+            durationMinutes,
+            price,
             _faker.Lorem.Sentence()
         );
     }

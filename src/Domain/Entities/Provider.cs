@@ -109,4 +109,13 @@ public class Provider
             throw new ArgumentException("End working hours must be after start working hours.");
         }
     }
+    
+    
+    public void AssignService(Service service)
+    {
+        if (!_services.Contains(service))
+        {
+            _services.Add(service);
+        }
+    }
 }

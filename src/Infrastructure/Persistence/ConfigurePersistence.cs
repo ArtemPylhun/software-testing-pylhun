@@ -36,7 +36,7 @@ public static class ConfigurePersistence
         services.AddRepositories();
     }
 
-    private static void AddRepositories(this IServiceCollection services)
+    public static void AddRepositories(this IServiceCollection services)
     {
         services.AddScoped<ProviderRepository>();
         services.AddScoped<IProviderRepository>(provider => provider.GetRequiredService<ProviderRepository>());
