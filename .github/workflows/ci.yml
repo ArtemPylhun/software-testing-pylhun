@@ -98,14 +98,13 @@ jobs:
       - name: Install EF Core CLI and Apply Migrations
         run: |
           dotnet tool install --global dotnet-ef
-          # Важливо: використовуй повний шлях до проектів, або спочатку перейди в корінь
-          dotnet ef database update --project Infrastructure/Infrastructure.csproj --startup-project Api/Api.csproj
+          dotnet ef database update --project src/Infrastructure/Infrastructure.csproj --startup-project src/API/API.csproj
         env:
           ASPNETCORE_ENVIRONMENT: Testing
           ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=appointments_db;Username=postgres;Password=${{ secrets.DB_PASSWORD }};Maximum Pool Size=200;"
-      # Запускаємо API з тим самим захищеним рядком підключення
+
       - name: Run API in background
-        run: dotnet run --project Api/Api.csproj &
+        run: dotnet run --project src/Api/Api.csproj &
         env:
           ASPNETCORE_ENVIRONMENT: Testing
           ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=appointments_db;Username=postgres;Password=${{ secrets.DB_PASSWORD }};Maximum Pool Size=200;"
@@ -114,4 +113,4 @@ jobs:
         run: sleep 10
 
       - name: Run k6 Load & Stress Tests
-        run: k6 run PerformanceTests/test-booking.js
+        run: k6 run tests/PerformanceTests/test-booking.js
