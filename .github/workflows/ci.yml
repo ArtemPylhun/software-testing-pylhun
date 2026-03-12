@@ -122,3 +122,15 @@ jobs:
 
       - name: Run k6 Load & Stress Tests
         run: k6 run tests/PerformanceTests/test-booking.js
+
+      # ДОДАЙ ЦЕЙ КРОК: Читаємо останні 100 рядків логів API
+      - name: Check API Logs for 500 Errors
+        if: always() # Гарантує, що логи виведуться, навіть якщо k6 "почервоніє"
+        run: |
+          echo "--- RECENT API LOGS ---"
+          tail -n 100 api_log.txt
+          echo "-----------------------"
+
+      - name: Stop API (Cleanup)
+        if: always()
+        run: pkill -f dotnet || true
