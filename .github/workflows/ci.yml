@@ -107,6 +107,7 @@ jobs:
         run: dotnet run --project src/Api/Api.csproj &
         env:
           ASPNETCORE_ENVIRONMENT: Testing
+          ASPNETCORE_URLS: "http://localhost:5233"
           ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=appointments_db;Username=postgres;Password=${{ secrets.DB_PASSWORD }};Maximum Pool Size=200;"
 
       - name: Wait for API to be ready
