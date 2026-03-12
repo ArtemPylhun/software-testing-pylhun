@@ -34,16 +34,23 @@ jobs:
 
       # Тести (Testcontainers підніме базу автоматично)
       # Додаємо Threshold=80 прямо сюди, щоб тест гарантовано впав, якщо покриття менше 80%
-      - name: Run Unit & Integration Tests with Coverage
-        run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage" --results-directory:"./coverage" DataCollectionRunSettings.Dictionary.Item.Threshold=80
-
+      # 1. Запускаємо тести з тією ж командою, що працює в тебе локально
+      - name: Run Unit & Integration Tests
+        run: |
+          dotnet test --no-build --configuration Release \
+          --collect:"XPlat Code Coverage" \
+          --results-directory:"./coverage" \
+          /p:CollectCoverage=true \
+          /p:CoverletOutputFormat=cobertura \
+          /p:Threshold=80 \
+          /p:ThresholdStat=line
+      # 2. Використовуємо потужний ReportGenerator для перевірки Quality Gate
       - name: Generate Coverage Report
         uses: danielpalme/ReportGenerator-GitHub-Action@v5
         with:
-          reports: 'coverage/**/*.xml'
+          reports: 'coverage/**/coverage.cobertura.xml' # Переконайся, що шлях точний
           targetdir: 'coveragereport'
           reporttypes: 'Html;Badges'
-
       - name: Upload Coverage Artifact
         uses: actions/upload-artifact@v4
         with:
