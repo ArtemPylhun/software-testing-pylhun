@@ -32,19 +32,17 @@ jobs:
       - name: Build Project
         run: dotnet build --no-restore --configuration Release
 
-      # Тести (Testcontainers PostgreSQL підніметься автоматично)
+      # Тести (Testcontainers підніме базу автоматично)
+      # Додаємо Threshold=80 прямо сюди, щоб тест гарантовано впав, якщо покриття менше 80%
       - name: Run Unit & Integration Tests with Coverage
-        run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage" --results-directory:"./coverage"
+        run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage" --results-directory:"./coverage" -- DataCollectionRunSettings.Dictionary.Item.Threshold=80
 
-      # Quality Gate: Аналіз покриття (впаде, якщо менше 80%)
-      - name: Check Code Coverage Quality Gate
+      - name: Generate Coverage Report
         uses: danielpalme/ReportGenerator-GitHub-Action@v5
         with:
           reports: 'coverage/**/*.xml'
           targetdir: 'coveragereport'
           reporttypes: 'Html;Badges'
-          # Жорсткий ліміт для бізнес-логіки
-          minimumLineCoverage: '80'
 
       - name: Upload Coverage Artifact
         uses: actions/upload-artifact@v4
@@ -55,18 +53,50 @@ jobs:
   performance-check:
     needs: build-and-test
     runs-on: ubuntu-latest
+    
+    # Піднімаємо базу, передаючи пароль із секретів
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }} # 🔐 Секрет тут!
+          POSTGRES_DB: appointments_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
       - name: Setup k6
         uses: grafana/setup-k6-action@v1
-
-      # Тут у реальному житті ми б піднімали API через docker-compose
+      
+      # Накочуємо міграції. Перебиваємо Connection String через ENV змінну!
+      - name: Install EF Core CLI and Apply Migrations
+        run: |
+          dotnet tool install --global dotnet-ef
+          dotnet ef database update --project Infrastructure/Infrastructure.csproj --startup-project Api/Api.csproj
+        env:
+          ASPNETCORE_ENVIRONMENT: Testing
+          ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=appointments_db;Username=postgres;Password=${{ secrets.DB_PASSWORD }};Maximum Pool Size=200;"
+      
+      # Запускаємо API з тим самим захищеним рядком підключення
       - name: Run API in background
         run: dotnet run --project Api/Api.csproj &
         env:
           ASPNETCORE_ENVIRONMENT: Testing
+          ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=appointments_db;Username=postgres;Password=${{ secrets.DB_PASSWORD }};Maximum Pool Size=200;"
 
       - name: Wait for API to be ready
         run: sleep 10
