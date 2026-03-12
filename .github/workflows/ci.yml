@@ -104,14 +104,21 @@ jobs:
           ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=appointments_db;Username=postgres;Password=${{ secrets.DB_PASSWORD }};Maximum Pool Size=200;"
 
       - name: Run API in background
-        run: dotnet run --project src/Api/Api.csproj &
+        run: |
+          # Запускаємо без ребілду і пишемо ВСЕ у файл api_log.txt
+          dotnet run --project src/API/API.csproj --configuration Release --no-build > api_log.txt 2>&1 &
         env:
           ASPNETCORE_ENVIRONMENT: Testing
           ASPNETCORE_URLS: "http://localhost:5233"
           ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=appointments_db;Username=postgres;Password=${{ secrets.DB_PASSWORD }};Maximum Pool Size=200;"
 
-      - name: Wait for API to be ready
-        run: sleep 10
+      - name: Wait for API to be ready and Check Logs
+        run: |
+          echo "Waiting 15 seconds for API to start..."
+          sleep 15
+          echo "--- API STARTUP LOGS ---"
+          cat api_log.txt # 👈 Ось тут ми побачимо справжню причину падіння!
+          echo "------------------------"
 
       - name: Run k6 Load & Stress Tests
         run: k6 run tests/PerformanceTests/test-booking.js
