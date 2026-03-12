@@ -35,7 +35,7 @@ jobs:
       # Тести (Testcontainers підніме базу автоматично)
       # Додаємо Threshold=80 прямо сюди, щоб тест гарантовано впав, якщо покриття менше 80%
       - name: Run Unit & Integration Tests with Coverage
-        run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage" --results-directory:"./coverage" -- DataCollectionRunSettings.Dictionary.Item.Threshold=80
+        run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage" --results-directory:"./coverage" DataCollectionRunSettings.Dictionary.Item.Threshold=80
 
       - name: Generate Coverage Report
         uses: danielpalme/ReportGenerator-GitHub-Action@v5

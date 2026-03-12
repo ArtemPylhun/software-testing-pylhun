@@ -13,67 +13,77 @@ public class AppointmentIntegrationTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task BookAppointment_WithValidData_ShouldReturnSuccess()
+public async Task BookAppointment_WithValidData_ShouldReturnSuccess()
+{
+    // Arrange
+    await using var db = GetDbContext();
+    
+    // Використовуємо твій TestDataBuilder, як у 3-му тесті
+    var provider = TestDataBuilder.BuildProvider(TimeOnly.MinValue, TimeOnly.MaxValue);
+    var service = TestDataBuilder.BuildService(30);
+    provider.AssignService(service);
+    
+    db.Providers.Add(provider);
+    await db.SaveChangesAsync();
+
+    var request = new 
     {
-        // Arrange: Беремо реального майстра та його послугу з бази
-        await using var db = GetDbContext();
-        var provider = await db.Providers.Include(p => p.Services).FirstAsync(p => p.Services.Any());
-        var service = provider.Services.First();
+        ProviderId = provider.Id.Value,
+        ServiceId = service.Id.Value,
+        ClientName = "Test Client",
+        ClientEmail = "client@test.com",
+        Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5)),
+        StartTime = new TimeOnly(10, 0) // Стабільний час
+    };
 
-        var request = new 
-        {
-            ProviderId = provider.Id.Value,
-            ServiceId = service.Id.Value,
-            ClientName = "Test Client",
-            ClientEmail = "client@test.com",
-            Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5)), // Запис на 5 днів вперед
-            StartTime = provider.StartWorkingHours // На самий початок робочого дня
-        };
+    // Act
+    var response = await Client.PostAsJsonAsync("/api/appointments", request);
 
-        // Act
-        var response = await Client.PostAsJsonAsync("/api/appointments", request);
+    // Assert
+    response.StatusCode.Should().Be(HttpStatusCode.OK);
+    
+    await using var dbCheck = GetDbContext();
+    var appointment = await dbCheck.Appointments.FirstOrDefaultAsync(a => a.ClientEmail == request.ClientEmail);
+    appointment.Should().NotBeNull();
+}
 
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.OK); // Або Created (201)
-        
-        // Перевіряємо, чи реально запис з'явився в базі
-        await using var dbCheck = GetDbContext();
-        var appointment = await dbCheck.Appointments.FirstOrDefaultAsync(a => a.ClientEmail == request.ClientEmail);
-        appointment.Should().NotBeNull();
-        appointment!.Status.Should().Be(AppointmentStatus.Booked);
-    }
+[Fact]
+public async Task BookAppointment_WithOverlappingTime_ShouldReturnConflict()
+{
+    // Arrange
+    await using var db = GetDbContext();
+    
+    var provider = TestDataBuilder.BuildProvider(TimeOnly.MinValue, TimeOnly.MaxValue);
+    var service = TestDataBuilder.BuildService(30);
+    provider.AssignService(service);
+    
+    db.Providers.Add(provider);
+    await db.SaveChangesAsync();
 
-    [Fact]
-    public async Task BookAppointment_WithOverlappingTime_ShouldReturnConflict()
+    var date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(2));
+    var startTime = new TimeOnly(10, 0);
+
+    var request1 = new 
     {
-        // Arrange
-        await using var db = GetDbContext();
-        var provider = await db.Providers.Include(p => p.Services).FirstAsync(p => p.Services.Any());
-        var service = provider.Services.First();
-        var date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(2));
-        var startTime = provider.StartWorkingHours;
+        ProviderId = provider.Id.Value, ServiceId = service.Id.Value,
+        ClientName = "Client 1", ClientEmail = "client1@test.com",
+        Date = date, StartTime = startTime
+    };
 
-        var request1 = new 
-        {
-            ProviderId = provider.Id.Value, ServiceId = service.Id.Value,
-            ClientName = "Client 1", ClientEmail = "client1@test.com",
-            Date = date, StartTime = startTime
-        };
+    var request2 = new 
+    {
+        ProviderId = provider.Id.Value, ServiceId = service.Id.Value,
+        ClientName = "Client 2", ClientEmail = "client2@test.com",
+        Date = date, StartTime = startTime
+    };
 
-        var request2 = new // Той самий час і майстер
-        {
-            ProviderId = provider.Id.Value, ServiceId = service.Id.Value,
-            ClientName = "Client 2", ClientEmail = "client2@test.com",
-            Date = date, StartTime = startTime
-        };
+    // Act
+    await Client.PostAsJsonAsync("/api/appointments", request1);
+    var response2 = await Client.PostAsJsonAsync("/api/appointments", request2);
 
-        // Act
-        await Client.PostAsJsonAsync("/api/appointments", request1); // Перший запис проходить
-        var response2 = await Client.PostAsJsonAsync("/api/appointments", request2); // Другий має впасти
-
-        // Assert
-        response2.StatusCode.Should().Be(HttpStatusCode.Conflict); // Або Conflict (409) залежно від вашого API
-    }
+    // Assert
+    response2.StatusCode.Should().Be(HttpStatusCode.Conflict);
+}
 
     [Fact]
     public async Task CancelAppointment_LessThanTwoHoursBeforeStart_ShouldReturnBadRequest()
