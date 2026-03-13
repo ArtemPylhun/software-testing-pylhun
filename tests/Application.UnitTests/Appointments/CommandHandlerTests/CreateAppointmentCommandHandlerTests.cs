@@ -3,12 +3,10 @@ using Application.Common.Interfaces.Queries;
 using Application.Common.Interfaces.Repositories;
 using Domain.Entities;
 using Domain.ValueObjects;
-using LanguageExt;
-using LanguageExt.SomeHelp;
 using NSubstitute;
 using Shouldly;
 
-namespace Application.UnitTests;
+namespace Application.UnitTests.Appointments.CommandHandlerTests;
 
 public class CreateAppointmentCommandHandlerTests
 {
@@ -35,7 +33,7 @@ public class CreateAppointmentCommandHandlerTests
 
     // --- Допоміжні методи для створення тестових даних ---
 
-    private Provider CreateProvider(Guid id, TimeOnly start, TimeOnly end)
+    private Provider CreateProvider(TimeOnly start, TimeOnly end)
     {
         return Provider.Create(
             "Dr. House",
@@ -73,7 +71,7 @@ public class CreateAppointmentCommandHandlerTests
         var date = new DateOnly(2024, 10, 20);
         var startTime = new TimeOnly(10, 0);
 
-        var provider = CreateProvider(providerId, new TimeOnly(9, 0), new TimeOnly(18, 0));
+        var provider = CreateProvider(new TimeOnly(9, 0), new TimeOnly(18, 0));
         var service = CreateService(60);
 
         // Повертаємо Option.Some(), щоб уникнути помилок типів
@@ -116,7 +114,7 @@ public class CreateAppointmentCommandHandlerTests
         var date = new DateOnly(2024, 10, 20);
         var startTime = new TimeOnly(hour, minute);
 
-        var provider = CreateProvider(providerId, new TimeOnly(9, 0), new TimeOnly(18, 0));
+        var provider = CreateProvider(new TimeOnly(9, 0), new TimeOnly(18, 0));
         var service = CreateService(60);
 
         _providerQueries.GetByIdAsync(Arg.Any<ProviderId>()).Returns(Optional.OptionExtensions.Some(provider));
@@ -142,7 +140,7 @@ public class CreateAppointmentCommandHandlerTests
 
         // Assert
         result.IsError.ShouldBeTrue();
-        result.IfError(err => err.Message.ShouldContain("overlap", Case.Insensitive));
+        result.IfError(err => err.Message.ShouldContain("overlap"));
         await _repository.DidNotReceive().AddAsync(Arg.Any<Appointment>(), Arg.Any<CancellationToken>());
     }
 
@@ -153,7 +151,7 @@ public class CreateAppointmentCommandHandlerTests
         var providerId = Guid.NewGuid();
         var startTime = new TimeOnly(19, 0); // Провідер до 18:00
 
-        var provider = CreateProvider(providerId, new TimeOnly(9, 0), new TimeOnly(18, 0));
+        var provider = CreateProvider(new TimeOnly(9, 0), new TimeOnly(18, 0));
         var service = CreateService(30);
 
         _providerQueries.GetByIdAsync(Arg.Any<ProviderId>()).Returns(Optional.OptionExtensions.Some(provider));
@@ -174,6 +172,6 @@ public class CreateAppointmentCommandHandlerTests
 
         // Assert
         result.IsError.ShouldBeTrue();
-        result.IfError(err => err.Message.ShouldContain("working hours", Case.Insensitive));
+        result.IfError(err => err.Message.ShouldContain("working hours"));
     }
 }
